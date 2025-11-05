@@ -1,5 +1,4 @@
 <?php
-// Bootstrap minimal app for auth demo
 
 // autoload
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
@@ -18,15 +17,31 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
 
 // session cookie params
 $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443;
+// Use host-only cookies by omitting the 'domain' option. This avoids problems
+// with hosts that include ports (e.g. localhost:8080) and keeps the cookie
+// scope limited to the request host.
 session_set_cookie_params([
 	'lifetime' => 0,
 	'path' => '/',
-	'domain' => $_SERVER['HTTP_HOST'] ?? '',
 	'secure' => $secure,
 	'httponly' => true,
 	'samesite' => 'Lax',
 ]);
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+// Make sure session starts at the very beginning
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+    if (!isset($_SESSION['_csrf_token'])) {
+        $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+    }
+}
+
+// Debug session info
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log('Session ID: ' . session_id());
+    error_log('Session Data: ' . print_r($_SESSION, true));
+    error_log('Cookie Data: ' . print_r($_COOKIE, true));
+}
 
 // basic routing
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
@@ -66,5 +81,4 @@ if ($uri === '/dashboard') {
 
 // fallback 404
 http_response_code(404);
-echo "Not Found";
-
+echo "Not Found - Index.php";

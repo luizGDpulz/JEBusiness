@@ -38,7 +38,13 @@ class AuthController
             // CSRF for non-API
             if (!$isJson && !Csrf::validate($csrf)) {
                 http_response_code(400);
-                echo 'CSRF token inválido';
+                echo 'CSRF token inválido<br>';
+                // echo "Token passado pelo form = {$csrf}<br>";
+                // echo "Token na sessão = " . ($_SESSION['_csrf_token'] ?? 'não existe') . "<br>";
+                // echo "Session ID = " . session_id() . "<br>";
+                // echo "Cookie da sessão existe? " . (isset($_COOKIE[session_name()]) ? 'Sim' : 'Não') . "<br>";
+                // echo "Conteúdo da sessão:<br>";
+                // var_dump($_SESSION);
                 return;
             }
 

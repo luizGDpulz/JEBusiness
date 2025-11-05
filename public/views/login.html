@@ -11,6 +11,10 @@
     <label>Senha: <input type="password" name="password" required></label><br>
     <!-- CSRF -->
     {{csrf_input}}
+    <!-- Debug info -->
+    <div style="display:none">
+      Session ID: <?php echo session_id(); ?>
+    </div>
     <button type="submit">Entrar</button>
   </form>
 </body>
