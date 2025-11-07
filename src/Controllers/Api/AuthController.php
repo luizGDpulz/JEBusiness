@@ -77,7 +77,7 @@ class AuthController
             }
 
             // redirect to dashboard
-            header('Location: /dashboard');
+            header('Location: /home');
         }
     }
 

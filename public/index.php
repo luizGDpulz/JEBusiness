@@ -69,7 +69,7 @@ if ($uri === '/logout') {
 	exit;
 }
 
-if ($uri === '/dashboard') {
+if ($uri === '/home' || $uri === '/' || $uri === '' || $uri === '/index.php') {
 	$user = AuthMiddleware::check();
 	if (!$user) {
 		header('Location: /login');
