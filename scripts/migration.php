@@ -12,6 +12,15 @@ $pdo = Database::getInstance();
 
 foreach ($files as $file) {
 	$sql = require $file;
+	// Support migrations that return either a plain SQL string or an array with 'up'/'down'
+	if (is_array($sql)) {
+		if (isset($sql['up'])) {
+			$sql = $sql['up'];
+		} else {
+			echo "Skipping migration (missing 'up' key): " . basename($file) . PHP_EOL;
+			continue;
+		}
+	}
 	if (!$sql) continue;
 	try {
 		$pdo->exec($sql);
