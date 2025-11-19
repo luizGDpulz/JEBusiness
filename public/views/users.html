@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Gerenciar Usuários</title>
+</head>
+<body>
+  <h1>Usuários</h1>
+  <button onclick="document.getElementById('modal-create').style.display='block'">Novo Usuário</button>
+  <table id="users-table" border="1">
+    <tr><th>ID</th><th>Nome</th><th>Email</th><th>Role</th><th>Ações</th></tr>
+    <!-- Usuários serão preenchidos via JS -->
+  </table>
+
+  <script>
+    // Exemplo: token do usuário logado (substitua por fluxo real)
+    const apiToken = localStorage.getItem('api_token') || '';
+
+    function fetchUsers() {
+      fetch('/api/users', {
+        headers: { 'Authorization': 'Bearer ' + apiToken, 'Accept': 'application/json' }
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          alert('Erro: ' + data.error + '\nVocê precisa estar autenticado como admin.');
+          return;
+        }
+        const table = document.getElementById('users-table');
+        while (table.rows.length > 1) table.deleteRow(1);
+        (data.users || []).forEach(u => {
+          const row = table.insertRow();
+          row.insertCell().textContent = u.id;
+          row.insertCell().textContent = u.name;
+          row.insertCell().textContent = u.email;
+          const role = (data.roles || []).find(r => r.id == u.role_id);
+          row.insertCell().textContent = role ? role.name : 'N/A';
+          const actions = row.insertCell();
+          actions.innerHTML = `
+            <button onclick="showEdit(${u.id})">Editar</button>
+            <button onclick="showDelete(${u.id}, '${u.name}')">Excluir</button>
+          `;
+        });
+      })
+      .catch(err => {
+        alert('Erro de conexão com a API.');
+      });
+    }
+    fetchUsers();
+
+    // Funções para modais (simplificadas)
+    function showEdit(id) {
+      document.getElementById('modal-edit-' + id).style.display = 'block';
+    }
+    function showDelete(id, name) {
+      document.getElementById('modal-delete-' + id).style.display = 'block';
+    }
+    // Adicione AJAX para criar/editar/excluir conforme necessário
+  </script>
+
+  <!-- Modal de criação (AJAX) -->
+  <div id="modal-create" style="display:none;position:fixed;top:10%;left:30%;background:#fff;border:1px solid #000;padding:20px;z-index:10;">
+    <form id="form-create">
+      <h2>Novo Usuário</h2>
+      <label>Nome: <input type="text" name="name" required></label><br>
+      <label>Email: <input type="email" name="email" required></label><br>
+      <label>Senha: <input type="password" name="password" required></label><br>
+      <label>Role:
+        <select name="role_id" id="create-role" required></select>
+      </label><br>
+      <button type="submit">Salvar</button>
+      <button type="button" onclick="document.getElementById('modal-create').style.display='none'">Cancelar</button>
+      <div id="create-error" style="color:red"></div>
+    </form>
+  </div>
+
+  <!-- Modal de edição (AJAX) -->
+  <div id="modal-edit" style="display:none;position:fixed;top:10%;left:30%;background:#fff;border:1px solid #000;padding:20px;z-index:10;">
+    <form id="form-edit">
+      <h2>Editar Usuário</h2>
+      <input type="hidden" name="id" id="edit-id">
+      <label>Nome: <input type="text" name="name" id="edit-name" required></label><br>
+      <label>Email: <input type="email" name="email" id="edit-email" required></label><br>
+      <label>Senha: <input type="password" name="password" id="edit-password"></label><br>
+      <label>Role:
+        <select name="role_id" id="edit-role" required></select>
+      </label><br>
+      <button type="submit">Salvar</button>
+      <button type="button" onclick="document.getElementById('modal-edit').style.display='none'">Cancelar</button>
+      <div id="edit-error" style="color:red"></div>
+    </form>
+  </div>
+
+  <!-- Modal de exclusão (AJAX) -->
+  <div id="modal-delete" style="display:none;position:fixed;top:10%;left:30%;background:#fff;border:1px solid #000;padding:20px;z-index:10;">
+    <form id="form-delete">
+      <h2>Excluir Usuário</h2>
+      <input type="hidden" name="id" id="delete-id">
+      <p id="delete-msg"></p>
+      <button type="submit">Excluir</button>
+      <button type="button" onclick="document.getElementById('modal-delete').style.display='none'">Cancelar</button>
+      <div id="delete-error" style="color:red"></div>
+    </form>
+  </div>
+</body>
+</html>

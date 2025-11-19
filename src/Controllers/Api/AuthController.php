@@ -68,11 +68,22 @@ class AuthController
             $_SESSION['user_id'] = $user['id'];
 
             // generate api token for API usage
+            // Garante que o token gerado é salvo no banco e retornado ao front
             $token = $userModel->setApiToken((int)$user['id']);
-
+            // Atualiza $user para garantir que o campo api_token_hash está correto
+            $user = $userModel->findById($user['id']);
             if ($isJson) {
                 header('Content-Type: application/json');
-                echo json_encode(['token' => $token, 'user' => ['id' => $user['id'], 'email' => $user['email'], 'name' => $user['name']]]);
+                echo json_encode([
+                    'token' => $token,
+                    'user' => [
+                        'id' => $user['id'],
+                        'email' => $user['email'],
+                        'name' => $user['name'],
+                        'role_id' => $user['role_id'],
+                        'api_token_hash' => $user['api_token_hash']
+                    ]
+                ]);
                 return;
             }
 

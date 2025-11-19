@@ -12,6 +12,12 @@ class User
         $this->pdo = Database::getInstance();
     }
 
+    public function getAll()
+    {
+        $stmt = $this->pdo->query('SELECT * FROM users');
+        return $stmt->fetchAll();
+    }
+
     public function findByEmail(string $email)
     {
     $stmt = $this->pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
@@ -50,7 +56,7 @@ class User
     {
         $token = bin2hex(random_bytes(32));
         $hash = hash('sha256', $token);
-    $stmt = $this->pdo->prepare('UPDATE users SET api_token_hash = :h WHERE id = :id');
+        $stmt = $this->pdo->prepare('UPDATE users SET api_token_hash = :h WHERE id = :id');
         $stmt->execute([':h' => $hash, ':id' => $userId]);
         return $token; // return raw token to client once
     }
@@ -61,5 +67,12 @@ class User
     $stmt = $this->pdo->prepare('SELECT * FROM users WHERE api_token_hash = :h LIMIT 1');
         $stmt->execute([':h' => $hash]);
         return $stmt->fetch() ?: null;
+    }
+        
+    public function getRole($user)
+    {            
+        if (!$user || !isset($user['role_id'])) return null;
+        $roleModel = new \Models\Role();
+        return $roleModel->findById($user['role_id']);
     }
 }
