@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Usuário</title>
+</head>
+<body>
+  <h1><?= isset($user) ? 'Editar' : 'Novo' ?> Usuário</h1>
+  <form method="post" action="<?= isset($user) ? '/users/update/' . $user['id'] : '/users/store' ?>">
+    <label>Nome: <input type="text" name="name" value="<?= $user['name'] ?? '' ?>" required></label><br>
+    <label>Email: <input type="email" name="email" value="<?= $user['email'] ?? '' ?>" required></label><br>
+    <label>Senha: <input type="password" name="password" <?= isset($user) ? '' : 'required' ?>></label><br>
+    <label>Role:
+      <select name="role_id" required>
+        <?php foreach ($roles as $r): ?>
+          <option value="<?= $r['id'] ?>" <?= (isset($user) && $user['role_id'] == $r['id']) ? 'selected' : '' ?>><?= $r['name'] ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label><br>
+    <button type="submit">Salvar</button>
+  </form>
+  <a href="/users">Voltar</a>
+</body>
+</html>

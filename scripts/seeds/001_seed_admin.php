@@ -1,8 +1,3 @@
 <?php
 // Seed data for admin user
-return [
-    'email' => 'admin@example.com',
-    'password' => 'admin123',
-    'name' => 'Admin Root',
-    'role_id' => 99,
-];
+return "INSERT INTO users (name, email, password_hash, role_id, created_at) VALUES ('Admin Root', 'admin@example.com', '" . password_hash('admin123', PASSWORD_ARGON2ID) . "', 99, NOW())";

@@ -7,6 +7,6 @@ return [
 	'DB_NAME' => getenv('DB_NAME') ?: 'jebusiness',
 	'DB_USER' => getenv('DB_USER') ?: 'root',
 	'DB_PASS' => getenv('DB_PASS') ?: '',
-	'APP_URL'  => getenv('APP_URL') ?: 'http://localhost:8080',
+	'APP_URL'  => getenv('APP_URL') ?: 'http://localhost',
 ];
 

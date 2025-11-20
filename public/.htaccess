@@ -1,8 +1,10 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
-    # Define o diretório base (ajuda em ambientes Windows)
     RewriteBase /
+
+    # Repasse o header Authorization ANTES do redirecionamento
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
 
     # Se o arquivo ou diretório existir, serve normalmente
     RewriteCond %{REQUEST_FILENAME} !-f

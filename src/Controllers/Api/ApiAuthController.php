@@ -4,7 +4,7 @@ namespace Controllers\Api;
 use Models\User;
 use Helpers\Csrf;
 
-class AuthController
+class ApiAuthController
 {
     public function showLogin()
     {
@@ -13,6 +13,10 @@ class AuthController
         $html = file_get_contents(__DIR__ . '/../../../public/views/login.html');
         $csrfField = \Helpers\Csrf::inputField();
         $html = str_replace('{{csrf_input}}', $csrfField, $html);
+        // also inject meta tag for JS to read
+        $csrf = \Helpers\Csrf::generate();
+        $meta = '<meta name="csrf-token" content="' . htmlspecialchars($csrf, ENT_QUOTES) . '">';
+        $html = str_replace('{{csrf_meta}}', $meta, $html);
         echo $html;
     }
 
@@ -39,12 +43,6 @@ class AuthController
             if (!$isJson && !Csrf::validate($csrf)) {
                 http_response_code(400);
                 echo 'CSRF token inválido<br>';
-                // echo "Token passado pelo form = {$csrf}<br>";
-                // echo "Token na sessão = " . ($_SESSION['_csrf_token'] ?? 'não existe') . "<br>";
-                // echo "Session ID = " . session_id() . "<br>";
-                // echo "Cookie da sessão existe? " . (isset($_COOKIE[session_name()]) ? 'Sim' : 'Não') . "<br>";
-                // echo "Conteúdo da sessão:<br>";
-                // var_dump($_SESSION);
                 return;
             }
 
@@ -69,15 +67,24 @@ class AuthController
 
             // generate api token for API usage
             $token = $userModel->setApiToken((int)$user['id']);
-
+            $user = $userModel->findById($user['id']);
             if ($isJson) {
                 header('Content-Type: application/json');
-                echo json_encode(['token' => $token, 'user' => ['id' => $user['id'], 'email' => $user['email'], 'name' => $user['name']]]);
+                echo json_encode([
+                    'token' => $token,
+                    'user' => [
+                        'id' => $user['id'],
+                        'email' => $user['email'],
+                        'name' => $user['name'],
+                        'role_id' => $user['role_id'],
+                        'api_token_hash' => $user['api_token_hash']
+                    ]
+                ]);
                 return;
             }
 
             // redirect to dashboard
-            header('Location: /dashboard');
+            header('Location: /home');
         }
     }
 
@@ -99,3 +106,4 @@ class AuthController
         header('Location: /login');
     }
 }
+

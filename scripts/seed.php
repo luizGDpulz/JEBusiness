@@ -11,31 +11,23 @@ sort($files);
 $pdo = Database::getInstance();
 
 foreach ($files as $file) {
-	$data = require $file;
-	if (!is_array($data)) continue;
-
-	// Only support admin user seed for now
-	if (isset($data['email'])) {
-		$stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email');
-		$stmt->execute([':email' => $data['email']]);
-		$exists = $stmt->fetch();
-		if ($exists) {
-			echo "Seed skipped (exists): " . $data['email'] . PHP_EOL;
-			continue;
+	$seed = require $file;
+	if (is_array($seed)) {
+		foreach ($seed as $sql) {
+			try {
+				$pdo->exec($sql);
+				echo "Seed executed: $sql" . PHP_EOL;
+			} catch (Exception $e) {
+				echo "Seed failed: $sql - " . $e->getMessage() . PHP_EOL;
+			}
 		}
-
-		$passwordHash = password_hash($data['password'], PASSWORD_ARGON2ID);
-
-	// MySQL: use NOW() for created_at
-	$sql = "INSERT INTO users (name, email, password_hash, role_id, created_at) VALUES (:name, :email, :password_hash, :role_id, NOW())";
-	$stmt = $pdo->prepare($sql);
-		$stmt->execute([
-			':name' => $data['name'] ?? 'Admin',
-			':email' => $data['email'],
-			':password_hash' => $passwordHash,
-			':role_id' => $data['role_id'] ?? 1,
-		]);
-		echo "Seed created: " . $data['email'] . PHP_EOL;
+	} elseif (is_string($seed)) {
+		try {
+			$pdo->exec($seed);
+			echo "Seed executed: $seed" . PHP_EOL;
+		} catch (Exception $e) {
+			echo "Seed failed: $seed - " . $e->getMessage() . PHP_EOL;
+		}
 	}
 }
 

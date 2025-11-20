@@ -3,19 +3,50 @@
 <head>
   <meta charset="utf-8">
   <title>Login</title>
+  {{csrf_meta}}
 </head>
 <body>
   <h1>Login</h1>
-  <form method="post" action="/login">
+  <form id="login-form">
     <label>Email: <input type="email" name="email" required></label><br>
     <label>Senha: <input type="password" name="password" required></label><br>
-    <!-- CSRF -->
     {{csrf_input}}
-    <!-- Debug info -->
-    <div style="display:none">
-      Session ID: <?php echo session_id(); ?>
-    </div>
     <button type="submit">Entrar</button>
+    <div id="login-error" style="color:red"></div>
   </form>
+  <script>
+    document.getElementById('login-form').onsubmit = function(e) {
+      e.preventDefault();
+      const email = e.target.email.value;
+      const password = e.target.password.value;
+      const csrfEl = document.querySelector('input[name="_csrf"]');
+      const csrf = csrfEl ? csrfEl.value : null;
+      const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+      const metaToken = metaCsrf ? metaCsrf.content : null;
+      fetch('/login', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': metaToken },
+        body: JSON.stringify({ email, password, _csrf: csrf })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.token) {
+          localStorage.setItem('api_token', data.token);
+          // Detecta rota de destino via parâmetro ?redirect= ou localStorage
+          const params = new URLSearchParams(window.location.search);
+          let destino = params.get('redirect') || localStorage.getItem('redirect_after_login') || '/home';
+          localStorage.removeItem('redirect_after_login');
+          setTimeout(function() {
+            window.location.href = destino;
+          }, 100);
+        } else {
+          document.getElementById('login-error').textContent = data.error || 'Login inválido';
+        }
+      })
+      .catch(() => {
+        document.getElementById('login-error').textContent = 'Erro de conexão.';
+      });
+    };
+  </script>
 </body>
 </html>

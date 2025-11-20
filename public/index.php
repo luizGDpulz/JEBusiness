@@ -47,29 +47,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-use Controllers\Api\AuthController;
-use Controllers\Web\ViewController;
+use Controllers\Api\ApiAuthController;
+use Controllers\Api\ApiUserController;
+use Controllers\Web\WebUserController;
+use Controllers\Web\WebViewController;
 use Middlewares\AuthMiddleware;
+use Middlewares\ApiAuthMiddleware;
 
-$auth = new AuthController();
-$views = new ViewController();
+$auth = new ApiAuthController();
+$apiUserController = new ApiUserController();
+$webUserController = new WebUserController();
+$views = new WebViewController();
 
-if ($uri === '/login' && $method === 'GET') {
-	$auth->showLogin();
-	exit;
+// Login routes
+if ($uri === '/login') {
+	if ($method === 'GET') {
+		$auth->showLogin();
+		exit;
+	}
+	if ($method === 'POST') {
+		$auth->login();
+		exit;
+	}
 }
 
-if ($uri === '/login' && $method === 'POST') {
-	$auth->login();
-	exit;
-}
-
+// Logout route
 if ($uri === '/logout') {
 	$auth->logout();
 	exit;
 }
 
-if ($uri === '/dashboard') {
+// Home / Dashboard route
+if ($uri === '/home' || $uri === '/' || $uri === '' || $uri === '/index.php') {
 	$user = AuthMiddleware::check();
 	if (!$user) {
 		header('Location: /login');
@@ -77,6 +86,90 @@ if ($uri === '/dashboard') {
 	}
 	$views->dashboard();
 	exit;
+}
+
+// Rotas API (JSON)
+if (strpos($uri, '/api/') === 0) {
+	$user = ApiAuthMiddleware::check();
+	if (!$user) {
+		http_response_code(401);
+		header('Content-Type: application/json');
+		echo json_encode(['error' => 'Token invalido ou ausente']);
+		exit;
+	}
+	// Permissão: apenas admin pode acessar /api/users
+	$isAdmin = ApiAuthMiddleware::checkRole(['admin']);
+	if ($uri === '/api/users' && $method === 'GET') {
+		if (!$isAdmin) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiUserController->index();
+		exit;
+	}
+	if ($uri === '/api/users/create' && $method === 'POST') {
+		if (!$isAdmin) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiUserController->store();
+		exit;
+	}
+	if (preg_match('#^/api/users/edit/(\d+)$#', $uri, $m) && $method === 'GET') {
+		if (!$isAdmin) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiUserController->edit($m[1]);
+		exit;
+	}
+	if (preg_match('#^/api/users/update/(\d+)$#', $uri, $m) && $method === 'POST') {
+		if (!$isAdmin) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiUserController->update($m[1]);
+		exit;
+	}
+	if (preg_match('#^/api/users/delete/(\d+)$#', $uri, $m) && $method === 'POST') {
+		if (!$isAdmin) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiUserController->delete($m[1]);
+		exit;
+	}
+}
+// Rotas web (sessão, CSRF)
+if (strpos($uri, '/users') === 0) {
+	$user = AuthMiddleware::check();
+	if (!$user) {
+		header('Location: /login');
+		exit;
+	}
+	if ($user['role_id'] != 99) {
+		http_response_code(403);
+		echo 'Acesso negado.';
+		exit;
+	}
+	// CRUD via modais na mesma rota
+	if ($uri === '/users' && $method === 'GET') {
+		// Serve apenas HTML para o frontend
+		$webUserController->index();
+		exit;
+	}
+	// As demais rotas web podem ser ajustadas para servir HTML ou redirecionar
+	// Se necessário, implemente formulários web ou redirecione para /users
 }
 
 // fallback 404

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Gerenciar Usuários</title>
+  {{csrf_meta}}
+</head>
+<body>
+  <h1>Usuários</h1>
+  <button onclick="document.getElementById('modal-create').style.display='block'">Novo Usuário</button>
+  <table id="users-table" border="1">
+    <tr><th>ID</th><th>Nome</th><th>Email</th><th>Role</th><th>Ações</th></tr>
+    <!-- Usuários serão preenchidos via JS -->
+  </table>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Exemplo: token do usuário logado (substitua por fluxo real)
+      const apiToken = localStorage.getItem('api_token') || '';
+      const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+      const csrfToken = metaCsrf ? metaCsrf.content : null;
+
+      let cachedUsers = [];
+      let cachedRoles = [];
+
+      function fetchUsers() {
+        fetch('/api/users', {
+          headers: { 'Authorization': 'Bearer ' + apiToken, 'Accept': 'application/json', 'X-CSRF-Token': csrfToken }
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            alert('Erro: ' + data.error + '\nVocê precisa estar autenticado como admin.');
+            return;
+          }
+          // cache users and roles for reuse
+          cachedUsers = data.users || [];
+          cachedRoles = data.roles || [];
+
+          const table = document.getElementById('users-table');
+          while (table.rows.length > 1) table.deleteRow(1);
+          (data.users || []).forEach(u => {
+            const row = table.insertRow();
+            row.insertCell().textContent = u.id;
+            row.insertCell().textContent = u.name;
+            row.insertCell().textContent = u.email;
+            const role = (data.roles || []).find(r => r.id == u.role_id);
+            row.insertCell().textContent = role ? role.name : 'N/A';
+            const actions = row.insertCell();
+            actions.innerHTML = `
+              <button onclick="showEdit(${u.id})">Editar</button>
+              <button onclick="showDelete(${u.id}, '${u.name}')">Excluir</button>
+            `;
+          });
+
+          // populate role selects (create/edit) so modals have options ready
+          const createSel = document.getElementById('create-role');
+          const editSel = document.getElementById('edit-role');
+          if (createSel) {
+            createSel.innerHTML = '';
+            (cachedRoles || []).forEach(r => {
+              const opt = document.createElement('option');
+              opt.value = r.id;
+              opt.textContent = r.name;
+              createSel.appendChild(opt);
+            });
+          }
+          if (editSel) {
+            editSel.innerHTML = '';
+            (cachedRoles || []).forEach(r => {
+              const opt = document.createElement('option');
+              opt.value = r.id;
+              opt.textContent = r.name;
+              editSel.appendChild(opt);
+            });
+          }
+        })
+        .catch(err => {
+          alert('Erro de conexão com a API.');
+        });
+      }
+      fetchUsers();
+
+      // Funções para modais (simplificadas)
+      function showEdit(id) {
+        // Try to use cached data first
+        const user = (cachedUsers || []).find(u => u.id == id);
+        const roles = cachedRoles || [];
+        if (user) {
+          document.getElementById('edit-id').value = user.id;
+          document.getElementById('edit-name').value = user.name;
+          document.getElementById('edit-email').value = user.email;
+          document.getElementById('edit-password').value = '';
+          const sel = document.getElementById('edit-role');
+          sel.innerHTML = '';
+          (roles || []).forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.id;
+            opt.textContent = r.name;
+            if (r.id == user.role_id) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          document.getElementById('modal-edit').style.display = 'block';
+          return;
+        }
+        // Fallback to API if cache missing
+        fetch('/api/users/edit/' + id, {
+          headers: { 'Authorization': 'Bearer ' + apiToken, 'Accept': 'application/json', 'X-CSRF-Token': csrfToken }
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { alert('Erro: ' + data.error); return; }
+          const u = data.user;
+          const rs = data.roles || [];
+          document.getElementById('edit-id').value = u.id;
+          document.getElementById('edit-name').value = u.name;
+          document.getElementById('edit-email').value = u.email;
+          document.getElementById('edit-password').value = '';
+          const sel = document.getElementById('edit-role');
+          sel.innerHTML = '';
+          rs.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.id;
+            opt.textContent = r.name;
+            if (r.id == u.role_id) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          document.getElementById('modal-edit').style.display = 'block';
+        })
+        .catch(() => alert('Erro ao buscar usuário.'));
+      }
+      window.showEdit = showEdit; // expose for inline onclick
+      function showDelete(id, name) {
+        document.getElementById('delete-id').value = id;
+        document.getElementById('delete-msg').textContent = `Tem certeza que deseja excluir ${name}?`;
+        document.getElementById('modal-delete').style.display = 'block';
+      }
+      window.showDelete = showDelete; // expose for inline onclick
+
+      // AJAX: criar
+      const formCreate = document.getElementById('form-create');
+      formCreate.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const f = e.target;
+        const data = {
+          name: f.name.value,
+          email: f.email.value,
+          password: f.password.value,
+          role_id: f.role_id.value
+        };
+        fetch('/api/users/create', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiToken,
+            'X-CSRF-Token': csrfToken
+          },
+          body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.error) {
+            document.getElementById('create-error').textContent = resp.error;
+            return;
+          }
+          document.getElementById('modal-create').style.display = 'none';
+          f.reset();
+          fetchUsers();
+        })
+        .catch(() => document.getElementById('create-error').textContent = 'Erro de conexão.');
+      });
+
+      // AJAX: editar
+      const formEdit = document.getElementById('form-edit');
+      formEdit.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const f = e.target;
+        const id = document.getElementById('edit-id').value;
+        const payload = {
+          name: f.name.value,
+          email: f.email.value,
+          role_id: f.role_id.value
+        };
+        if (f.password.value) payload.password = f.password.value;
+        fetch('/api/users/update/' + id, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiToken,
+            'X-CSRF-Token': csrfToken
+          },
+          body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.error) {
+            document.getElementById('edit-error').textContent = resp.error;
+            return;
+          }
+          document.getElementById('modal-edit').style.display = 'none';
+          fetchUsers();
+        })
+        .catch(() => document.getElementById('edit-error').textContent = 'Erro de conexão.');
+      });
+
+      // AJAX: excluir
+      const formDelete = document.getElementById('form-delete');
+      formDelete.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('delete-id').value;
+        fetch('/api/users/delete/' + id, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer ' + apiToken,
+            'X-CSRF-Token': csrfToken
+          }
+        })
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.error) {
+            document.getElementById('delete-error').textContent = resp.error;
+            return;
+          }
+          document.getElementById('modal-delete').style.display = 'none';
+          fetchUsers();
+        })
+        .catch(() => document.getElementById('delete-error').textContent = 'Erro de conexão.');
+      });
+    });
+  </script>
+
+  <!-- Modal de criação (AJAX) -->
+  <div id="modal-create" style="display:none;position:fixed;top:10%;left:30%;background:#fff;border:1px solid #000;padding:20px;z-index:10;">
+    <form id="form-create">
+      <h2>Novo Usuário</h2>
+      <label>Nome: <input type="text" name="name" required></label><br>
+      <label>Email: <input type="email" name="email" required></label><br>
+      <label>Senha: <input type="password" name="password" required></label><br>
+      <label>Role:
+        <select name="role_id" id="create-role" required></select>
+      </label><br>
+      <button type="submit">Salvar</button>
+      <button type="button" onclick="document.getElementById('modal-create').style.display='none'">Cancelar</button>
+      <div id="create-error" style="color:red"></div>
+    </form>
+  </div>
+
+  <!-- Modal de edição (AJAX) -->
+  <div id="modal-edit" style="display:none;position:fixed;top:10%;left:30%;background:#fff;border:1px solid #000;padding:20px;z-index:10;">
+    <form id="form-edit">
+      <h2>Editar Usuário</h2>
+      <input type="hidden" name="id" id="edit-id">
+      <label>Nome: <input type="text" name="name" id="edit-name" required></label><br>
+      <label>Email: <input type="email" name="email" id="edit-email" required></label><br>
+      <label>Senha: <input type="password" name="password" id="edit-password"></label><br>
+      <label>Role:
+        <select name="role_id" id="edit-role" required></select>
+      </label><br>
+      <button type="submit">Salvar</button>
+      <button type="button" onclick="document.getElementById('modal-edit').style.display='none'">Cancelar</button>
+      <div id="edit-error" style="color:red"></div>
+    </form>
+  </div>
+
+  <!-- Modal de exclusão (AJAX) -->
+  <div id="modal-delete" style="display:none;position:fixed;top:10%;left:30%;background:#fff;border:1px solid #000;padding:20px;z-index:10;">
+    <form id="form-delete">
+      <h2>Excluir Usuário</h2>
+      <input type="hidden" name="id" id="delete-id">
+      <p id="delete-msg"></p>
+      <button type="submit">Excluir</button>
+      <button type="button" onclick="document.getElementById('modal-delete').style.display='none'">Cancelar</button>
+      <div id="delete-error" style="color:red"></div>
+    </form>
+  </div>
+</body>
+</html>
