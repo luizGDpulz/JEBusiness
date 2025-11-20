@@ -4,7 +4,7 @@ namespace Controllers\Api;
 use Models\User;
 use Helpers\Csrf;
 
-class AuthController
+class ApiAuthController
 {
     public function showLogin()
     {
@@ -13,6 +13,10 @@ class AuthController
         $html = file_get_contents(__DIR__ . '/../../../public/views/login.html');
         $csrfField = \Helpers\Csrf::inputField();
         $html = str_replace('{{csrf_input}}', $csrfField, $html);
+        // also inject meta tag for JS to read
+        $csrf = \Helpers\Csrf::generate();
+        $meta = '<meta name="csrf-token" content="' . htmlspecialchars($csrf, ENT_QUOTES) . '">';
+        $html = str_replace('{{csrf_meta}}', $meta, $html);
         echo $html;
     }
 
@@ -39,12 +43,6 @@ class AuthController
             if (!$isJson && !Csrf::validate($csrf)) {
                 http_response_code(400);
                 echo 'CSRF token inválido<br>';
-                // echo "Token passado pelo form = {$csrf}<br>";
-                // echo "Token na sessão = " . ($_SESSION['_csrf_token'] ?? 'não existe') . "<br>";
-                // echo "Session ID = " . session_id() . "<br>";
-                // echo "Cookie da sessão existe? " . (isset($_COOKIE[session_name()]) ? 'Sim' : 'Não') . "<br>";
-                // echo "Conteúdo da sessão:<br>";
-                // var_dump($_SESSION);
                 return;
             }
 
@@ -68,9 +66,7 @@ class AuthController
             $_SESSION['user_id'] = $user['id'];
 
             // generate api token for API usage
-            // Garante que o token gerado é salvo no banco e retornado ao front
             $token = $userModel->setApiToken((int)$user['id']);
-            // Atualiza $user para garantir que o campo api_token_hash está correto
             $user = $userModel->findById($user['id']);
             if ($isJson) {
                 header('Content-Type: application/json');
@@ -110,3 +106,4 @@ class AuthController
         header('Location: /login');
     }
 }
+

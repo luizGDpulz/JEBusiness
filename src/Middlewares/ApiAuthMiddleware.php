@@ -11,11 +11,15 @@ class ApiAuthMiddleware
     public static function check(): ?array
     {
         $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['Authorization'] ?? '';
+        error_log("[DEBUG] Authorization header recebido: $authHeader");
         if (preg_match('/Bearer\s+(\S+)/', $authHeader, $m)) {
             $token = $m[1];
+            error_log("[DEBUG] Token extraído do header: $token");
             $userModel = new User();
             $user = $userModel->findByApiToken($token);
             return $user ?: null;
+        } else {
+            error_log("[DEBUG] Bearer token não encontrado no header");
         }
         return null;
     }

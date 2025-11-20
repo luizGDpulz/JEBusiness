@@ -24,3 +24,4 @@ class RoleMiddleware
         return in_array($role['name'], $roles);
     }
 }
+

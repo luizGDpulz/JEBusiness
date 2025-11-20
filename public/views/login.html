@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8">
   <title>Login</title>
+  {{csrf_meta}}
 </head>
 <body>
   <h1>Login</h1>
   <form id="login-form">
     <label>Email: <input type="email" name="email" required></label><br>
     <label>Senha: <input type="password" name="password" required></label><br>
+    {{csrf_input}}
     <button type="submit">Entrar</button>
     <div id="login-error" style="color:red"></div>
   </form>
@@ -17,10 +19,14 @@
       e.preventDefault();
       const email = e.target.email.value;
       const password = e.target.password.value;
+      const csrfEl = document.querySelector('input[name="_csrf"]');
+      const csrf = csrfEl ? csrfEl.value : null;
+      const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+      const metaToken = metaCsrf ? metaCsrf.content : null;
       fetch('/login', {
         method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': metaToken },
+        body: JSON.stringify({ email, password, _csrf: csrf })
       })
       .then(r => r.json())
       .then(data => {

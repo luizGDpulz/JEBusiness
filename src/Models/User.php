@@ -64,11 +64,45 @@ class User
     public function findByApiToken(string $token)
     {
         $hash = hash('sha256', $token);
-    $stmt = $this->pdo->prepare('SELECT * FROM users WHERE api_token_hash = :h LIMIT 1');
+        // Debug: log token, hash e valor do banco
+        error_log("[DEBUG] Token recebido: $token");
+        error_log("[DEBUG] Hash gerado: $hash");
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE api_token_hash = :h LIMIT 1');
         $stmt->execute([':h' => $hash]);
-        return $stmt->fetch() ?: null;
+        $user = $stmt->fetch() ?: null;
+        if ($user) {
+            error_log("[DEBUG] api_token_hash no banco: " . $user['api_token_hash']);
+        } else {
+            error_log("[DEBUG] Nenhum usuário encontrado para esse hash");
+        }
+        return $user;
     }
         
+    public function update($id, array $data)
+    {
+        $sql = 'UPDATE users SET name = :name, email = :email, role_id = :role_id';
+        $params = [
+            ':name' => $data['name'] ?? null,
+            ':email' => $data['email'] ?? null,
+            ':role_id' => $data['role_id'] ?? 1,
+            ':id' => $id
+        ];
+        if (isset($data['password_hash'])) {
+            $sql .= ', password_hash = :password_hash';
+            $params[':password_hash'] = $data['password_hash'];
+        }
+        $sql .= ' WHERE id = :id';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $this->findById($id);
+    }
+
+    public function delete($id)
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM users WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        return $stmt->rowCount() > 0;
+    }
     public function getRole($user)
     {            
         if (!$user || !isset($user['role_id'])) return null;

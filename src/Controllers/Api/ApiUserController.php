@@ -4,24 +4,20 @@ namespace Controllers\Api;
 use Models\User;
 use Models\Role;
 
-class UserController
+class ApiUserController
 {
     public function index()
     {
-        $isJson = strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false;
+        header('Content-Type: application/json; charset=utf-8');
         $userModel = new User();
         $users = $userModel->getAll();
         $roleModel = new Role();
         $roles = $roleModel->findAll();
-        if ($isJson) {
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode([
-                'users' => $users,
-                'roles' => $roles
-            ]);
-            return;
-        }
-        include __DIR__ . '/../../../public/views/users.html';
+        echo json_encode([
+            'users' => $users,
+            'roles' => $roles
+        ]);
+        return;
     }
 
     public function store()
@@ -64,18 +60,7 @@ class UserController
             $data['password_hash'] = password_hash($data['password'], PASSWORD_ARGON2ID);
         }
         unset($data['password']);
-        $stmt = $userModel->pdo->prepare('UPDATE users SET name = :name, email = :email, role_id = :role_id' . (isset($data['password_hash']) ? ', password_hash = :password_hash' : '') . ' WHERE id = :id');
-        $params = [
-            ':name' => $data['name'],
-            ':email' => $data['email'],
-            ':role_id' => $data['role_id'],
-            ':id' => $id
-        ];
-        if (isset($data['password_hash'])) {
-            $params[':password_hash'] = $data['password_hash'];
-        }
-        $stmt->execute($params);
-        $user = $userModel->findById($id);
+        $user = $userModel->update($id, $data);
         if ($isJson) {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['user' => $user]);
@@ -88,11 +73,10 @@ class UserController
     {
         $isJson = strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false;
         $userModel = new User();
-        $stmt = $userModel->pdo->prepare('DELETE FROM users WHERE id = :id');
-        $stmt->execute([':id' => $id]);
+        $deleted = $userModel->delete($id);
         if ($isJson) {
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['deleted' => true, 'id' => $id]);
+            echo json_encode(['deleted' => (bool)$deleted, 'id' => $id]);
             return;
         }
         header('Location: /users');
