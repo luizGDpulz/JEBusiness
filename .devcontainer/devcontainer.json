@@ -1,22 +1,17 @@
 {
-  "name": "PHP + Apache + MySQL (Codespace)",
-  "dockerComposeFile": "./docker-compose.yml",
-  "service": "workspace",
-  "workspaceFolder": "/var/www/html",
-  "shutdownAction": "stopCompose",
-  "forwardPorts": [80],
-  "postCreateCommand": "composer install || true && chmod -R 775 /var/www/html && chown -R vscode:www-data /var/www/html || true",
-  "remoteUser": "vscode",
+  "name": "PHP + Apache + MySQL Codespace",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "forwardPorts": [80, 3306],
+  "postCreateCommand": "sudo service mysql start && composer install || true",
   "customizations": {
     "vscode": {
       "extensions": [
-        "felixfbecker.php-debug",
         "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug",
         "esbenp.prettier-vscode"
-      ],
-      "settings": {
-        "php.validate.executablePath": "/usr/local/bin/php"
-      }
+      ]
     }
   }
 }
