@@ -21,12 +21,12 @@ services:
     container_name: codespace_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: app_db
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: secretpassword
+      MYSQL_ROOT_PASSWORD: DB_PASSWORD
+      MYSQL_DATABASE: DB_DATABASE
+      MYSQL_USER: DB_USER
+      MYSQL_PASSWORD: DB_PASSWORD
     volumes:
-      - db_data:/var/lib/mysql
+      - ./db_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     expose:
       - "3306"
