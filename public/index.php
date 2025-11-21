@@ -30,17 +30,17 @@ session_set_cookie_params([
 
 // Make sure session starts at the very beginning
 if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-    if (!isset($_SESSION['_csrf_token'])) {
-        $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
-    }
+	session_start();
+	if (!isset($_SESSION['_csrf_token'])) {
+		$_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+	}
 }
 
 // Debug session info
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    error_log('Session ID: ' . session_id());
-    error_log('Session Data: ' . print_r($_SESSION, true));
-    error_log('Cookie Data: ' . print_r($_COOKIE, true));
+	error_log('Session ID: ' . session_id());
+	error_log('Session Data: ' . print_r($_SESSION, true));
+	error_log('Cookie Data: ' . print_r($_COOKIE, true));
 }
 
 // basic routing
@@ -49,15 +49,23 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 use Controllers\Api\ApiAuthController;
 use Controllers\Api\ApiUserController;
+use Controllers\Api\ApiProductController;
+use Controllers\Api\ApiCategoryController;
 use Controllers\Web\WebUserController;
 use Controllers\Web\WebViewController;
+use Controllers\Web\WebProductController;
+use Controllers\Web\WebCategoryController;
 use Middlewares\AuthMiddleware;
 use Middlewares\ApiAuthMiddleware;
 
 $auth = new ApiAuthController();
 $apiUserController = new ApiUserController();
+$apiProductController = new ApiProductController();
+$apiCategoryController = new ApiCategoryController();
 $webUserController = new WebUserController();
 $views = new WebViewController();
+$webProductController = new WebProductController();
+$webCategoryController = new WebCategoryController();
 
 // Login routes
 if ($uri === '/login') {
@@ -86,6 +94,92 @@ if ($uri === '/home' || $uri === '/' || $uri === '' || $uri === '/index.php') {
 	}
 	$views->dashboard();
 	exit;
+}
+
+// Rotas web (sessão, CSRF)
+if (strpos($uri, '/users') === 0) {
+	$user = AuthMiddleware::check();
+	if (!$user) {
+		header('Location: /login');
+		exit;
+	}
+	if ($user['role_id'] != 99) {
+		http_response_code(403);
+		echo 'Acesso negado.';
+		exit;
+	}
+	// CRUD via modais na mesma rota
+	if ($uri === '/users' && $method === 'GET') {
+		// Serve apenas HTML para o frontend
+		$webUserController->index();
+		exit;
+	}
+	// As demais rotas web podem ser ajustadas para servir HTML ou redirecionar
+	// Se necessário, implemente formulários web ou redirecione para /users
+}
+
+// Rotas web para Produtos
+if (strpos($uri, '/products') === 0) {
+	$user = AuthMiddleware::check();
+	if (!$user) {
+		header('Location: /login');
+		exit;
+	}
+	// Lista pública para usuários autenticados
+	if ($uri === '/products' && $method === 'GET') {
+		$webProductController->index();
+		exit;
+	}
+	// Ações de gerenciamento exigem admin
+	if ($user['role_id'] != 99) {
+		http_response_code(403);
+		echo 'Acesso negado.';
+		exit;
+	}
+	if ($uri === '/products' && $method === 'POST') {
+		$apiProductController->store();
+		exit;
+	}
+	if (preg_match('#^/products/update/(\d+)$#', $uri, $m) && $method === 'PUT') {
+		$apiProductController->update($m[1]);
+		exit;
+	}
+	if (preg_match('#^/products/delete/(\d+)$#', $uri, $m) && $method === 'DELETE') {
+		$apiProductController->delete($m[1]);
+		exit;
+	}
+}
+
+// Rotas web para Categorias
+if (strpos($uri, '/categories') === 0) {
+	$user = AuthMiddleware::check();
+	if (!$user) {
+		header('Location: /login');
+		exit;
+	}
+	// Lista pública para usuários autenticados
+	if ($uri === '/categories' && $method === 'GET') {
+		$webCategoryController->index();
+		exit;
+	}
+	// Ações de gerenciamento exigem admin
+	if ($user['role_id'] != 99) {
+		http_response_code(403);
+		echo 'Acesso negado.';
+		exit;
+	}
+	if ($uri === '/categories' && $method === 'POST') {
+		$apiCategoryController->store();
+		exit;
+	}
+	if (preg_match('#^/categories/update/(\d+)$#', $uri, $m) && $method === 'PUT') {
+		$apiCategoryController->update($m[1]);
+		exit;
+	}
+	if (preg_match('#^/categories/delete/(\d+)$#', $uri, $m) && $method === 'DELETE') {
+		$apiCategoryController->delete($m[1]);
+		exit;
+	}
 }
 
 // Rotas API (JSON)
@@ -129,7 +223,7 @@ if (strpos($uri, '/api/') === 0) {
 		$apiUserController->edit($m[1]);
 		exit;
 	}
-	if (preg_match('#^/api/users/update/(\d+)$#', $uri, $m) && $method === 'POST') {
+	if (preg_match('#^/api/users/update/(\d+)$#', $uri, $m) && $method === 'PUT') {
 		if (!$isAdmin) {
 			http_response_code(403);
 			header('Content-Type: application/json');
@@ -139,7 +233,7 @@ if (strpos($uri, '/api/') === 0) {
 		$apiUserController->update($m[1]);
 		exit;
 	}
-	if (preg_match('#^/api/users/delete/(\d+)$#', $uri, $m) && $method === 'POST') {
+	if (preg_match('#^/api/users/delete/(\d+)$#', $uri, $m) && $method === 'DELETE') {
 		if (!$isAdmin) {
 			http_response_code(403);
 			header('Content-Type: application/json');
@@ -149,27 +243,95 @@ if (strpos($uri, '/api/') === 0) {
 		$apiUserController->delete($m[1]);
 		exit;
 	}
-}
-// Rotas web (sessão, CSRF)
-if (strpos($uri, '/users') === 0) {
-	$user = AuthMiddleware::check();
-	if (!$user) {
-		header('Location: /login');
+
+	// API Produtos
+	$isVendedor = ApiAuthMiddleware::checkRole(['vendedor']);
+	if ($uri === '/api/products' && $method === 'GET') {
+		$apiProductController->index();
 		exit;
 	}
-	if ($user['role_id'] != 99) {
-		http_response_code(403);
-		echo 'Acesso negado.';
+	if (preg_match('#^/api/products/edit/(\d+)$#', $uri, $m) && $method === 'GET') {
+		$apiProductController->edit($m[1]);
 		exit;
 	}
-	// CRUD via modais na mesma rota
-	if ($uri === '/users' && $method === 'GET') {
-		// Serve apenas HTML para o frontend
-		$webUserController->index();
+	if (preg_match('#^/api/products/show/(\d+)$#', $uri, $m) && $method === 'GET') {
+		$apiProductController->show($m[1]);
 		exit;
 	}
-	// As demais rotas web podem ser ajustadas para servir HTML ou redirecionar
-	// Se necessário, implemente formulários web ou redirecione para /users
+	if ($uri === '/api/products/create' && $method === 'POST') {
+		if (!$isAdmin && !$isVendedor) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiProductController->store();
+		exit;
+	}
+	if (preg_match('#^/api/products/update/(\d+)$#', $uri, $m) && $method === 'PUT') {
+		if (!$isAdmin && !$isVendedor) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiProductController->update($m[1]);
+		exit;
+	}
+	if (preg_match('#^/api/products/delete/(\d+)$#', $uri, $m) && $method === 'DELETE') {
+		if (!$isAdmin && !$isVendedor) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiProductController->delete($m[1]);
+		exit;
+	}
+
+	// API Categorias
+	if ($uri === '/api/categories' && $method === 'GET') {
+		$apiCategoryController->index();
+		exit;
+	}
+	if (preg_match('#^/api/categories/edit/(\d+)$#', $uri, $m) && $method === 'GET') {
+		$apiCategoryController->edit($m[1]);
+		exit;
+	}
+	if (preg_match('#^/api/categories/show/(\d+)$#', $uri, $m) && $method === 'GET') {
+		$apiCategoryController->show($m[1]);
+		exit;
+	}
+	if ($uri === '/api/categories/create' && $method === 'POST') {
+		if (!$isAdmin && !$isVendedor) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiCategoryController->store();
+		exit;
+	}
+	if (preg_match('#^/api/categories/update/(\d+)$#', $uri, $m) && $method === 'PUT') {
+		if (!$isAdmin && !$isVendedor) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiCategoryController->update($m[1]);
+		exit;
+	}
+	if (preg_match('#^/api/categories/delete/(\d+)$#', $uri, $m) && $method === 'DELETE') {
+		if (!$isAdmin && !$isVendedor) {
+			http_response_code(403);
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'Acesso negado']);
+			exit;
+		}
+		$apiCategoryController->delete($m[1]);
+		exit;
+	}
 }
 
 // fallback 404

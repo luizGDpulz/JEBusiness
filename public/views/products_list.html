@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Produtos</title>
+    {{csrf_meta}}
+    <!-- jQuery para AJAX -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .toolbar {
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            margin-right: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 600px;
+            border-radius: 4px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-actions {
+            margin-top: 20px;
+            text-align: right;
+        }
+
+        .alert {
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Gerenciar Produtos</h1>
+
+        <div id="alerts"></div>
+
+        <div class="toolbar">
+            <button class="btn btn-success" onclick="openCreateModal()">+ Novo Produto</button>
+            <button class="btn" onclick="openCategoriesModal()">📁 Gerenciar Categorias</button>
+            <button class="btn" onclick="loadProducts()">Atualizar</button>
+        </div>
+
+        <div id="productsContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Carregando produtos...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para criar/editar produto -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeProductModal()">&times;</span>
+            <h2 id="modalTitle">Novo Produto</h2>
+            <div class="modal-alert" id="productModalAlert"></div>
+            <form id="productForm">
+                <input type="hidden" id="productId">
+
+                <div class="form-group">
+                    <label for="productName">Nome *</label>
+                    <input type="text" id="productName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="productPrice">Preço *</label>
+                    <input type="number" id="productPrice" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="productStock">Estoque</label>
+                    <input type="number" id="productStock" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="productDescription">Descrição</label>
+                    <textarea id="productDescription"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="productCategory">Categoria</label>
+                    <select id="productCategory">
+                        <!-- <option value=""></option> -->
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeProductModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para criar/editar categorias -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content" style="width: 800px;">
+            <span class="close" onclick="closeCategoryModal()">&times;</span>
+            <h2>Gerenciar Categorias</h2>
+            <div class="modal-alert" id="categoryModalAlert"></div>
+
+            <div class="toolbar" style="margin-bottom: 15px;">
+                <button class="btn btn-success" onclick="openCreateCategoryForm()">+ Nova Categoria</button>
+            </div>
+
+            <!-- Tabela de categorias -->
+            <div id="categoriesTableContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Carregando categorias...</p>
+                </div>
+            </div>
+
+            <!-- Formulário para criar/editar categoria -->
+            <div id="categoryFormContainer"
+                style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <h3 id="categoryFormTitle">Nova Categoria</h3>
+                <form id="categoryForm">
+                    <input type="hidden" id="categoryId">
+
+                    <div class="form-group">
+                        <label for="categoryName">Nome *</label>
+                        <input type="text" id="categoryName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="categoryDescription">Descrição</label>
+                        <textarea id="categoryDescription"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn" onclick="closeCategoryForm()">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Token e CSRF (mesmo padrão de users.html)
+        const apiToken = localStorage.getItem('api_token') || '';
+        const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = metaCsrf ? metaCsrf.content : null;
+
+        // Exibe alertas dentro de modais
+        function showModalAlert(modalId, message, type = 'danger') {
+            const alertContainer = document.getElementById(modalId);
+            if (!alertContainer) return;
+            alertContainer.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+        // State
+        let products = [];
+        let categories = [];
+        let editingProductId = null;
+        let editingCategoryId = null;
+
+        // Inicializa ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProducts();
+            loadCategories();
+            document.getElementById('productForm').addEventListener('submit', handleSaveProduct);
+            document.getElementById('categoryForm').addEventListener('submit', handleSaveCategory);
+        });
+
+        // Carrega lista de produtos via AJAX (jQuery)
+        function loadProducts() {
+            console.log('Carregando produtos via AJAX...');
+            const container = document.getElementById('productsContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando produtos...</p></div>';
+
+            $.ajax({
+                url: '/api/products',
+                type: 'GET',
+                dataType: 'json',
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken,
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                success: function (data) {
+                    products = data.products || [];
+                    renderProductsTable();
+                },
+                error: function (xhr, status, error) {
+                    showAlert(`Erro ao carregar produtos: ${error}`, 'danger');
+                    container.innerHTML = '<p>Erro ao carregar produtos.</p>';
+                }
+            });
+        }
+
+        // Renderiza tabela de produtos
+        function renderProductsTable() {
+            const container = document.getElementById('productsContainer');
+
+            if (products.length === 0) {
+                container.innerHTML = '<p>Nenhum produto cadastrado. <a href="javascript:openCreateModal()">Criar novo</a></p>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Descrição</th>
+                            <th>Preço</th>
+                            <th>Estoque</th>
+                            <th>Categoria</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            products.forEach(product => {
+                const preço = parseFloat(product.price).toFixed(2);
+                if(product.category_id == null) {
+                    product.category = { name: '<Não Categorizado>' };
+                }
+                html += `
+                    <tr>
+                        <td>${product.id}</td>
+                        <td>${escapeHtml(product.name)}</td>
+                        <td>${escapeHtml(product.description)}</td>
+                        <td>R$ ${preço}</td>
+                        <td>${product.stock_qty}</td>
+                        <td>${escapeHtml(product.category.name) || '-'}</td>
+                        <td>
+                            <button class="btn" style="padding: 5px 10px; font-size: 12px;" onclick="openEditModal(${product.id})">Editar</button>
+                            <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteProduct(${product.id})">Deletar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Abre modal para criar novo produto
+        function openCreateModal() {
+            editingProductId = null;
+            document.getElementById('modalTitle').textContent = 'Novo Produto';
+            document.getElementById('productForm').reset();
+            document.getElementById('productId').value = '';
+            document.getElementById('productModal').classList.add('active');
+        }
+
+        // Abre modal para editar produto (busca via API similar a users.html)
+        function openEditModal(productId) {
+            editingProductId = productId;
+            const apiUrl = '/api/products/edit/' + productId;
+            fetch(apiUrl, {
+                headers: { 'Authorization': 'Bearer ' + apiToken, 'Accept': 'application/json', 'X-CSRF-Token': csrfToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { showAlert('Erro: ' + data.error, 'danger'); return; }
+                const product = data.product;
+                const cats = data.categories || [];
+                // populate category select with server-provided categories
+                categories = cats;
+                populateCategorySelect();
+
+                document.getElementById('modalTitle').textContent = `Editar Produto: ${product.name}`;
+                document.getElementById('productId').value = product.id;
+                document.getElementById('productName').value = product.name;
+                document.getElementById('productPrice').value = product.price;
+                document.getElementById('productStock').value = product.stock_qty || 0;
+                document.getElementById('productDescription').value = product.description || '';
+                document.getElementById('productCategory').value = product.category_id || '';
+
+                document.getElementById('productModal').classList.add('active');
+            })
+            .catch(() => showAlert('Erro ao buscar produto', 'danger'));
+        }
+
+        // Fecha modal
+        function closeProductModal() {
+            document.getElementById('productModal').classList.remove('active');
+            editingProductId = null;
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('active');
+            closeCategoryForm();
+        }
+
+        // Carrega categorias via AJAX
+        function loadCategories() {
+            $.ajax({
+                url: '/api/categories',
+                type: 'GET',
+                dataType: 'json',
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken,
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                success: function (data) {
+                    categories = data.categories || [];
+                    populateCategorySelect();
+                    renderCategoriesTable();
+                },
+                error: function (xhr, status, error) {
+                    showAlert(`Erro ao carregar categorias: ${error}`, 'danger');
+                }
+            });
+        }
+
+        // Popula select de categorias no formulário de produtos
+        function populateCategorySelect() {
+            const select = document.getElementById('productCategory');
+            const currentValue = select.value;
+
+            // Limpa as opções atuais
+            select.innerHTML = '';
+
+            // Adiciona categorias vindas do backend
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.name;
+                select.appendChild(option);
+            });
+
+            // 🔹 Se estiver criando um produto (não editando), define padrão = categoria id 1
+            if (!editingProductId) {
+                const defaultCategory = categories.find(c => c.id == 1);
+                if (defaultCategory) {
+                    select.value = defaultCategory.id;
+                }
+            } else {
+                // 🔹 Se estiver editando, mantém a categoria atual
+                select.value = currentValue || '1';
+            }
+        }
+
+
+
+
+        // Renderiza tabela de categorias
+        function renderCategoriesTable() {
+            const container = document.getElementById('categoriesTableContainer');
+
+            const filteredCategories = categories.filter(c => c.id !== 1);
+
+            if (filteredCategories.length === 0) {
+                container.innerHTML = '<p>Nenhuma categoria cadastrada.</p>';
+                return;
+            }
+
+            let html = `
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Descrição</th>
+                    <th>Ações</th>
+                </tr>
+                </thead>
+                <tbody>
+            `;
+
+            filteredCategories.forEach(category => {
+                html += `
+                <tr>
+                <td>${category.id}</td>
+                <td>${escapeHtml(category.name)}</td>
+                <td>${escapeHtml(category.description || '-')}</td>
+                <td>
+                    <button class="btn" style="padding: 5px 10px; font-size: 12px;" onclick="openEditCategoryForm(${category.id})">Editar</button>
+                    <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteCategory(${category.id})">Deletar</button>
+                </td>
+                </tr>
+            `;
+            });
+
+            html += `
+                </tbody>
+            </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Abre modal de categorias
+        function openCategoriesModal() {
+            document.getElementById('categoryModal').classList.add('active');
+            loadCategories();
+        }
+
+        // Abre formulário para nova categoria
+        function openCreateCategoryForm() {
+            editingCategoryId = null;
+            document.getElementById('categoryFormTitle').textContent = 'Nova Categoria';
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryId').value = '';
+            document.getElementById('categoryFormContainer').style.display = 'block';
+        }
+
+        // Abre formulário para editar categoria (busca via API similar a users.html)
+        function openEditCategoryForm(categoryId) {
+            editingCategoryId = categoryId;
+            const apiUrl = '/api/categories/edit/' + categoryId;
+            fetch(apiUrl, {
+                headers: { 'Authorization': 'Bearer ' + apiToken, 'Accept': 'application/json', 'X-CSRF-Token': csrfToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { showAlert('Erro: ' + data.error, 'danger'); return; }
+                const category = data.category;
+                document.getElementById('categoryFormTitle').textContent = `Editar Categoria: ${category.name}`;
+                document.getElementById('categoryId').value = category.id;
+                document.getElementById('categoryName').value = category.name;
+                document.getElementById('categoryDescription').value = category.description || '';
+                document.getElementById('categoryFormContainer').style.display = 'block';
+            })
+            .catch(() => showAlert('Erro ao buscar categoria', 'danger'));
+        }
+
+        // Fecha formulário de categoria
+        function closeCategoryForm() {
+            document.getElementById('categoryFormContainer').style.display = 'none';
+            document.getElementById('categoryForm').reset();
+            editingCategoryId = null;
+        }
+
+        // Salva produto (criar ou atualizar) via AJAX
+        function handleSaveProduct(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('productId').value;
+            const categoryValue = document.getElementById('productCategory').value;
+            const data = {
+                name: document.getElementById('productName').value,
+                price: parseFloat(document.getElementById('productPrice').value),
+                stock_qty: parseInt(document.getElementById('productStock').value) || 0,
+                description: document.getElementById('productDescription').value,
+                category_id: categoryValue ? parseInt(categoryValue) : null
+            };
+
+            if (!data.name || !data.price) {
+                showModalAlert('productModalAlert', 'Nome e preço são obrigatórios', 'danger');
+                return;
+            }
+
+            let url, method;
+            if (id) {
+                // Atualizar
+                url = `/api/products/update/${id}`;
+                method = 'PUT';
+            } else {
+                // Criar
+                url = '/api/products/create';
+                method = 'POST';
+            }
+
+            $.ajax({
+                url: url,
+                type: method,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken,
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                success: function (response) {
+                    if (id) {
+                        showAlert('Produto atualizado com sucesso!', 'success');
+                    } else {
+                        showAlert('Produto criado com sucesso!', 'success');
+                    }
+                    closeProductModal();
+                    loadProducts();
+                },
+                error: function (xhr, status, error) {
+                    let errorMsg = 'Ocorreu um erro inesperado.';
+
+                    // 🔹 Tenta pegar JSON do backend
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    // 🔹 Tenta pegar mensagem padrão de texto se não for JSON
+                    else if (xhr.responseText) {
+                        try {
+                            // Se vier um JSON válido sem o campo .error
+                            const json = JSON.parse(xhr.responseText);
+                            if (json.message) errorMsg = json.message;
+                            else if (json.error) errorMsg = json.error;
+                        } catch {
+                            // Se não for JSON, usa texto cru
+                            errorMsg = xhr.responseText;
+                        }
+                    }
+
+                    // 🔹 Mostra erro no modal, se estiver aberto
+                    if (document.getElementById('productModal').classList.contains('active')) {
+                        showModalAlert('productModalAlert', errorMsg, 'danger');
+                    } else if (document.getElementById('categoryModal').classList.contains('active')) {
+                        showModalAlert('categoryModalAlert', errorMsg, 'danger');
+                    } else {
+                        showAlert(`Erro: ${errorMsg}`, 'danger');
+                    }
+                }
+            });
+        }
+
+        // Deleta produto via AJAX
+        function deleteProduct(productId) {
+            if (!confirm('Tem certeza que deseja deletar este produto?')) {
+                return;
+            }
+
+            $.ajax({
+                url: `/api/products/delete/${productId}`,
+                type: 'DELETE',
+                contentType: 'application/json',
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken,
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                success: function (response) {
+                    showAlert('Produto deletado com sucesso!', 'success');
+                    loadProducts();
+                },
+                error: function (xhr, status, error) {
+                    let errorMsg = 'Erro ao deletar produto';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    showAlert(`Erro: ${errorMsg}`, 'danger');
+                }
+            });
+        }
+
+        // Salva categoria (criar ou atualizar) via AJAX
+        function handleSaveCategory(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('categoryId').value;
+            const data = {
+                name: document.getElementById('categoryName').value,
+                description: document.getElementById('categoryDescription').value
+            };
+
+            if (!data.name) {
+                showModalAlert('categoryModalAlert', 'Nome da categoria é obrigatório', 'danger');
+                return;
+            }
+
+            let url, method;
+            if (id) {
+                // Atualizar via controller
+                url = `/api/categories/update/${id}`;
+                method = 'PUT';
+            } else {
+                // Criar via controller
+                url = '/api/categories/create';
+                method = 'POST';
+            }
+
+            $.ajax({
+                url: url,
+                type: method,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken,
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                success: function (response) {
+                    if (id) {
+                        showCategoryModalAlert('Categoria atualizada com sucesso!', 'success');
+                    } else {
+                        showCategoryModalAlert('Categoria criada com sucesso!', 'success');
+                    }
+                    closeCategoryForm();
+                    loadCategories();
+                    loadProducts(); // Recarrega produtos porque as categorias mudaram
+                },
+                error: function (xhr, status, error) {
+                    let errorMsg = 'Ocorreu um erro inesperado.';
+
+                    // 🔹 Tenta pegar JSON do backend
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    // 🔹 Tenta pegar mensagem padrão de texto se não for JSON
+                    else if (xhr.responseText) {
+                        try {
+                            // Se vier um JSON válido sem o campo .error
+                            const json = JSON.parse(xhr.responseText);
+                            if (json.message) errorMsg = json.message;
+                            else if (json.error) errorMsg = json.error;
+                        } catch {
+                            // Se não for JSON, usa texto cru
+                            errorMsg = xhr.responseText;
+                        }
+                    }
+
+                    // 🔹 Mostra erro no modal, se estiver aberto
+                    if (document.getElementById('productModal').classList.contains('active')) {
+                        showModalAlert('productModalAlert', errorMsg, 'danger');
+                    } else if (document.getElementById('categoryModal').classList.contains('active')) {
+                        showModalAlert('categoryModalAlert', errorMsg, 'danger');
+                    } else {
+                        showAlert(`Erro: ${errorMsg}`, 'danger');
+                    }
+                }
+            });
+        }
+
+        // Deleta categoria via AJAX
+        function deleteCategory(categoryId) {
+            if (!confirm('Tem certeza que deseja deletar esta categoria?')) {
+                return;
+            }
+
+            $.ajax({
+                url: `/api/categories/delete/${categoryId}`,
+                type: 'DELETE',
+                contentType: 'application/json',
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken,
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                success: function (response) {
+                    // Show feedback inside category modal when open
+                    const categoryModal = document.getElementById('categoryModal');
+                    if (categoryModal && categoryModal.classList.contains('active')) {
+                        showCategoryModalAlert('Categoria deletada com sucesso!', 'success');
+                    } else {
+                        showAlert('Categoria deletada com sucesso!', 'success');
+                    }
+                    loadCategories();
+                    loadProducts(); // Recarrega produtos porque as categorias mudaram
+                },
+                error: function (xhr, status, error) {
+                    let errorMsg = 'Erro ao deletar categoria';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    showAlert(`Erro: ${errorMsg}`, 'danger');
+                }
+            });
+        }
+
+        // Exibe alertas
+        function showAlert(message, type = 'info') {
+            const alertsContainer = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertsContainer.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Exibe alertas específicas dentro do modal de categorias
+        function showCategoryModalAlert(message, type = 'info') {
+            const alertsContainer = document.getElementById('categoryModalAlert');
+            if (!alertsContainer) return;
+            alertsContainer.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => { alertsContainer.innerHTML = ''; }, 5000);
+        }
+        // Escapa HTML para evitar XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Fecha modal ao clicar fora
+        window.onclick = function (event) {
+            const modal = document.getElementById('productModal');
+            if (event.target === modal) {
+                closeProductModal();
+            }
+        }
+    </script>
+</body>
+
+</html>
