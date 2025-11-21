@@ -1,6 +1,6 @@
 {
   "name": "PHP + Apache + MySQL (Codespace)",
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": "./docker-compose.yml",
   "service": "workspace",
   "workspaceFolder": "/var/www/html",
   "shutdownAction": "stopCompose",
