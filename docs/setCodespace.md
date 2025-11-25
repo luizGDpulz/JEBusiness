@@ -1,3 +1,166 @@
+**Setup rápido: GitHub Codespaces (devcontainer)**
+
+Este guia é focado em GitHub Codespaces: como criar a pasta `./.devcontainer`, os arquivos necessários e como iniciar/reiniciar o ambiente (Apache + PHP + MariaDB) preparado neste repositório.
+
+Pré-requisitos
+- Ter acesso ao repositório no GitHub (Codespace criado a partir deste repo/branch).
+- Ter permissão para criar Codespaces ou rebuild no repositório.
+
+Passo único: criar `.devcontainer` com os arquivos prontos
+
+1. No seu ambiente local (ou no editor do GitHub), crie a pasta `.devcontainer/` na raiz do projeto.
+
+2. Dentro de `.devcontainer/` crie os três arquivos a seguir com exatamente o conteúdo mostrado.
+
+- Arquivo: `devcontainer.json`
+
+```json
+{
+  "name": "PHP + Apache + MariaDB (Codespaces)",
+  "build": { "dockerfile": "Dockerfile" },
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [80, 3306],
+  "customizations": {
+    "vscode": { "extensions": ["bmewburn.vscode-intelephense-client","felixfbecker.php-debug"] }
+  },
+  "postCreateCommand": "bash .devcontainer/init.sh ${localWorkspaceFolderBasename}"
+}
+```
+
+- Arquivo: `Dockerfile`
+
+```dockerfile
+FROM php:8.2-apache
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instala MariaDB + cliente e dependências PHP
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      mariadb-server mariadb-client \
+      git zip unzip libzip-dev \
+  && docker-php-ext-install pdo pdo_mysql mysqli \
+  && a2enmod rewrite \
+  && rm -rf /var/lib/apt/lists/*
+
+# Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+EXPOSE 80 3306
+WORKDIR /var/www/html
+
+# DocumentRoot será ajustado pelo init.sh se houver /public
+```
+
+- Arquivo: `init.sh` (TORNE EXECUTÁVEL com `chmod +x .devcontainer/init.sh`)
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_BASENAME="${1:-}"
+if [ -z "$REPO_BASENAME" ]; then
+  echo "[init] Usage: init.sh <repo-basename>"
+  exit 1
+fi
+
+WORKDIR="/workspaces/${REPO_BASENAME}"
+PUBLIC_DIR="${WORKDIR}/public"
+APACHE_CONF="/etc/apache2/sites-available/000-default.conf"
+
+echo "[init] repo basename: ${REPO_BASENAME}"
+echo "[init] workspace: ${WORKDIR}"
+
+echo "[init] iniciando MariaDB..."
+service mariadb start 2>/dev/null || service mysql start 2>/dev/null || service mysqld start 2>/dev/null || true
+
+if command -v mysqladmin >/dev/null 2>&1; then
+  echo "[init] aguardando mariadb (até 30s)..."
+  MAX=30; i=0
+  until mysqladmin ping --silent >/dev/null 2>&1; do
+    i=$((i+1))
+    if [ "$i" -ge "$MAX" ]; then
+      echo "[init] timeout esperando mariadb. Prosseguindo (verifique manualmente)."
+      break
+    fi
+    sleep 1
+  done
+  echo "[init] mariadb check finalizado (ou timeout)."
+else
+  echo "[init] mysqladmin/mariadb-admin não encontrado; pulando wait."
+fi
+
+if [ -d "${PUBLIC_DIR}" ]; then
+  echo "[init] detectado ${PUBLIC_DIR} — ajustando DocumentRoot do Apache..."
+  sed -i "s#/var/www/html#${PUBLIC_DIR}#g" "${APACHE_CONF}"
+  chown -R www-data:www-data "${PUBLIC_DIR}" 2>/dev/null || true
+  chmod -R 755 "${PUBLIC_DIR}" 2>/dev/null || true
+  APACHE_MAIN_CONF="/etc/apache2/apache2.conf"
+  if ! grep -q "<Directory ${PUBLIC_DIR}>" "${APACHE_MAIN_CONF}" 2>/dev/null; then
+    cat >> "${APACHE_MAIN_CONF}" <<-EOF
+<Directory ${PUBLIC_DIR}>
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+EOF
+  fi
+else
+  echo "[init] ${PUBLIC_DIR} não existe — Apache continuará com /var/www/html."
+fi
+
+chown -R www-data:www-data "${WORKDIR}" 2>/dev/null || true
+
+echo "[init] reiniciando apache..."
+service apache2 restart 2>/dev/null || service httpd restart 2>/dev/null || true
+
+echo "[init] finalizado."
+echo "[init] Apache DocumentRoot atual: $(grep -Eo 'DocumentRoot .*' ${APACHE_CONF} || echo '/var/www/html')"
+echo "[init] Para acessar MariaDB/MySQL: dentro do container rode 'mysql -u root' (ou 'mariadb -u root') (dev)."
+```
+
+3. (Opcional) Se desejar, adicione também `scripts/setup-dev.sh` para criar o banco e o usuário e rodar migrations automaticamente (ex.: `./scripts/setup-dev.sh`).
+
+Commit e push
+
+```bash
+git add .devcontainer/*
+git commit -m "chore(devcontainer): add Codespaces devcontainer files"
+git push --no-verify
+```
+
+Criar / Rebuild do Codespace
+
+- No GitHub: Code → Codespaces → Create codespace (escolha branch atual).
+- Se o Codespace já existir: Command Palette → `Codespaces: Rebuild Container` (ou `Dev Containers: Rebuild Container`).
+
+Verificações rápidas dentro do Codespace (após rebuild)
+
+```bash
+# Apache
+curl -I http://localhost
+
+# MariaDB
+ps aux | egrep 'mysqld|mariadb' --color=never
+service mariadb status 2>/dev/null || service mysql status 2>/dev/null
+
+# Testar cliente SQL (conectar como root ou usuário criado)
+mariadb -u root
+mysql -h 127.0.0.1 -u jebusiness -p
+```
+
+Se algo falhar
+
+- Cole a saída dos comandos acima e os logs (ex.: `tail -n 200 /var/log/mysql/error.log` ou `/var/log/mariadb/mariadb.log`) para que eu analise.
+
+Foco no Codespace: considerações finais
+
+- Este tutorial é intencionalmente simples: o devcontainer inicia apenas os serviços e ajusta DocumentRoot caso exista `public/` no repo. Não cria automaticamente seeds sensíveis ou usuários de produção.
+- Para colaboração, prefira criar um `scripts/setup-dev.sh` (já disponível neste repo) que prepara o DB local de dev.
+
+-----
+
+Adicionei/editei também `init.sh` e `Dockerfile` no repositório para compatibilidade com Debian trixie / MariaDB.
+
 **Guia de Setup do Codespace / DevContainer**
 
 Este documento explica passo-a-passo como configurar e usar o devcontainer preparado neste repositório (Apache + PHP + MariaDB single-container) dentro do GitHub Codespaces.
