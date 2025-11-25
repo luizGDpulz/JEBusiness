@@ -14,9 +14,10 @@ APACHE_CONF="/etc/apache2/sites-available/000-default.conf"
 echo "[init] repo basename: ${REPO_BASENAME}"
 echo "[init] workspace: ${WORKDIR}"
 
-# 1) Start MySQL (root sem senha ok para dev conforme seu pedido)
-echo "[init] iniciando mysql..."
-service mysql start 2>/dev/null || service mysqld start 2>/dev/null || true
+# 1) Start MySQL/MariaDB (root sem senha ok para dev conforme seu pedido)
+echo "[init] iniciando mysql/mariadb..."
+# Tenta iniciar nomes comuns de serviço: mysql, mariadb, mysqld
+service mysql start 2>/dev/null || service mariadb start 2>/dev/null || service mysqld start 2>/dev/null || true
 
 # 2) Esperar até o mysql responder (se mysqladmin estiver disponível)
 if command -v mysqladmin >/dev/null 2>&1; then

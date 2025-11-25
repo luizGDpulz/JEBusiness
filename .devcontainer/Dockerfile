@@ -2,9 +2,9 @@ FROM php:8.2-apache
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instala MySQL server + cliente e dependências PHP
+# Instala MariaDB (substituto compatível com MySQL) + cliente e dependências PHP
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      mysql-server mysql-client \
+      mariadb-server mariadb-client \
       git zip unzip libzip-dev \
   && docker-php-ext-install pdo pdo_mysql mysqli \
   && a2enmod rewrite \
