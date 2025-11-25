@@ -1,0 +1,17 @@
+{
+  "name": "PHP (Apache) + MySQL - Codespace",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "web",
+  "workspaceFolder": "/var/www/html",
+  "forwardPorts": [80, 3306],
+  "shutdownAction": "stopCompose",
+  "postCreateCommand": "composer install || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "felixfbecker.php-debug"
+      ]
+    }
+  }
+}
