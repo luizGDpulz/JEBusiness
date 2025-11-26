@@ -37,6 +37,49 @@ else
   echo "[init] mysqladmin/mariadb-admin não encontrado; pulando wait."
 fi
 
+# 2.5) Configurar senha root e criar DB/usuário de dev (idempotente)
+DB_ROOT_PASS='_43690'
+if command -v mariadb >/dev/null 2>&1 || command -v mysql >/dev/null 2>&1; then
+  echo "[init] aplicando configuração SQL (senha root e usuário de dev)..."
+  # Tenta executar via socket como root (comando deve rodar sem senha inicialmente)
+  mysql_cmd="mysql"
+  if command -v mariadb >/dev/null 2>&1; then
+    mysql_cmd="mariadb"
+  fi
+  # Executa SQL de forma idempotente
+  $mysql_cmd -u root <<SQL || true
+ALTER USER IF EXISTS 'root'@'localhost' IDENTIFIED BY '${DB_ROOT_PASS}';
+CREATE DATABASE IF NOT EXISTS jebusiness CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'jebusiness'@'127.0.0.1' IDENTIFIED BY '${DB_ROOT_PASS}';
+GRANT ALL PRIVILEGES ON jebusiness.* TO 'jebusiness'@'127.0.0.1';
+FLUSH PRIVILEGES;
+SQL
+  echo "[init] SQL aplicado (root: ${DB_ROOT_PASS})."
+else
+  echo "[init] cliente mysql/mariadb não encontrado; pulando config de senha DB."
+fi
+
+# 2.75) Gerar config do phpMyAdmin (blowfish + cookie) para evitar erros de parse e permitir login com senha
+PHPMYADMIN_DIR="/var/www/phpmyadmin"
+PHPMYADMIN_CONF="$PHPMYADMIN_DIR/config.inc.php"
+if [ -d "$PHPMYADMIN_DIR" ]; then
+  echo "[init] gerando $PHPMYADMIN_CONF"
+  cat > "$PHPMYADMIN_CONF" <<'PHP'
+<?php
+$cfg['blowfish_secret'] = '_43690_blowfish_secret_';
+$i = 0;
+$i++;
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
+$cfg['Servers'][$i]['host'] = '127.0.0.1';
+$cfg['Servers'][$i]['connect_type'] = 'tcp';
+$cfg['Servers'][$i]['compress'] = false;
+$cfg['Servers'][$i]['AllowNoPassword'] = false;
+?>
+PHP
+  chown www-data:www-data "$PHPMYADMIN_CONF" 2>/dev/null || true
+  chmod 644 "$PHPMYADMIN_CONF" 2>/dev/null || true
+fi
+
 # 3) Se existir /public no workspace, ajustar DocumentRoot do Apache PARA ESSA PASTA.
 #    Se não existir, NÃO criar nada (como você pediu) — manterá /var/www/html
 if [ -d "${PUBLIC_DIR}" ]; then
