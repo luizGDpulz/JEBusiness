@@ -64,6 +64,12 @@ fi
 
 # 4) Ajustar permissões do workspace (silencioso se falhar)
 chown -R www-data:www-data "${WORKDIR}" 2>/dev/null || true
+# Garantir permissões do phpMyAdmin
+PHPMYADMIN_DIR="/var/www/phpmyadmin"
+if [ -d "$PHPMYADMIN_DIR" ]; then
+  chown -R www-data:www-data "$PHPMYADMIN_DIR" 2>/dev/null || true
+  chmod -R 755 "$PHPMYADMIN_DIR" 2>/dev/null || true
+fi
 
 # 5) Reiniciar/garantir Apache rodando
 echo "[init] reiniciando apache..."

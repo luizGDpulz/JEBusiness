@@ -143,6 +143,9 @@ curl -I http://localhost
 ps aux | egrep 'mysqld|mariadb' --color=never
 service mariadb status 2>/dev/null || service mysql status 2>/dev/null
 
+# phpMyAdmin
+# Acesse http://localhost/phpmyadmin no navegador (login: root, sem senha)
+
 # Testar cliente SQL (conectar como root ou usuário criado)
 mariadb -u root
 mysql -h 127.0.0.1 -u jebusiness -p
@@ -168,8 +171,9 @@ Este documento explica passo-a-passo como configurar e usar o devcontainer prepa
 **Resumo rápido**
 - Arquivos principais no `.devcontainer/`:
   - `devcontainer.json`: descrição do container (build via `Dockerfile`, `postCreateCommand` que roda `init.sh`).
-  - `Dockerfile`: imagem base `php:8.2-apache`, instala pacotes e extensões PHP necessárias (PDO, pdo_mysql, mysqli) e MariaDB.
+  - `Dockerfile`: imagem base `php:8.2-apache`, instala pacotes e extensões PHP necessárias (PDO, pdo_mysql, mysqli), MariaDB e phpMyAdmin.
   - `init.sh`: script que inicia serviços (MariaDB, Apache), ajusta `DocumentRoot` para `public/` quando presente, corrige permissões e adiciona `<Directory>` para evitar 403.
+  - phpMyAdmin disponível em `/phpmyadmin` (login: root, sem senha).
 
 Passo 1 — conferir arquivos
 
