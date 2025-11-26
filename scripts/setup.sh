@@ -71,4 +71,21 @@ else
   echo "[setup] php não encontrado no PATH; não foi possível rodar migrations."
 fi
 
+# Garantir que git-lfs esteja disponível para permitir 'git push' quando houver LFS configurado
+if ! command -v git-lfs >/dev/null 2>&1; then
+  echo "[setup] git-lfs não encontrado; tentando instalar via apt (requer sudo)..."
+  if sudo apt-get update -y >/dev/null 2>&1 && sudo apt-get install -y git-lfs >/dev/null 2>&1; then
+    echo "[setup] git-lfs instalado com sucesso. Configurando localmente..."
+    git lfs install --local >/dev/null 2>&1 || true
+  else
+    echo "[setup] falha ao instalar git-lfs automaticamente. Removendo hook pre-push como fallback (se existir)."
+    if [ -f .git/hooks/pre-push ]; then
+      rm -f .git/hooks/pre-push || true
+      echo "[setup] hook .git/hooks/pre-push removido. Se o repositório usa LFS, instale git-lfs manualmente antes de push." 
+    fi
+  fi
+else
+  git lfs install --local >/dev/null 2>&1 || true
+fi
+
 echo "[setup] finalizado."

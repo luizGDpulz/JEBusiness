@@ -20,6 +20,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Install git-lfs for devcontainer (ensure git-lfs available inside container)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates gnupg2 \
+  && curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash \
+  && apt-get install -y git-lfs \
+  && git lfs install --system \
+  && rm -rf /var/lib/apt/lists/* \
+
 # Expor portas (informativo)
 EXPOSE 80 3306
 
