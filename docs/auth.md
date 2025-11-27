@@ -34,9 +34,3 @@ Segurança importante:
 - `session_regenerate_id(true)` é chamado ao autenticar.
 - Cookies de sessão usam HttpOnly, Secure (se aplicável) e SameSite=Lax.
 - CSRF básico implementado para formulários via token em session.
-
-Próximos passos sugeridos (issues):
-
-- Implementar rate-limit / lockout para endpoint de login.
-- Migrar para Composer autoload e adicionar PHPStan/Psalm.
-- Implementar testes ativos e CI com PHPUnit.
